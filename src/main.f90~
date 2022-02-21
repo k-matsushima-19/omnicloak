@@ -1,0 +1,168 @@
+program main
+  use math
+  use bessel
+  use smatrix_shell_multiple_class
+  use smatrix_unit_donut_class
+
+  real(8) :: w
+  integer,parameter :: m_min = -15
+  integer,parameter :: m_max = +15
+  integer :: nobj
+  real(8),allocatable :: centers(:,:)
+  integer,parameter :: nkind = 1
+  integer,allocatable :: dict(:)
+  real(8),parameter :: radius = 0.2d0
+
+  type(smatrix_unit_donut) :: smat_unit(1)
+  type(smatrix_shell_multiple) :: smat_shell
+
+
+  integer :: iobj, i, j
+  real(8) :: angle
+
+  complex(8),allocatable :: Ap(:), Bm(:)
+  complex(8),allocatable :: Bp(:)
+  real(8) :: sigma
+  real(8) :: x(2)
+  complex(8) :: u
+
+  read(*,*) w
+  
+  
+  ! dist.txtから配置を読み込む
+  open(10,file="dist.txt")
+  read(10,*) nobj ; allocate(centers(2,nobj))
+  do iobj=1,nobj
+     read(10,*) i, centers(:,iobj), angle
+  end do
+  close(10)
+  
+  ! 全部同じとする
+  allocate(dict(nobj))
+  dict(:) = 1
+
+  ! 単位構造のS行列 (silicon - lead)
+  call smat_unit(1)%new(w, 2, [0.10d0,0.08d0], [1.083d3,9.667d3], [4.5d0,3.729d5])
+
+  call smat_shell%new(w, m_min, m_max, nobj, centers, 1, dict, smat_unit)
+
+  
+  ! x2方向の平面波に対応するAp, Bm
+  allocate(Ap(m_min:m_max))
+  allocate(Bm(m_min:m_max))
+  allocate(Bp(m_min:m_max))
+  Ap(:) = one
+  Bm(:) = matmul(smat_shell%S11,Ap)
+  Bp(:) = matmul(smat_shell%S21,Ap)
+
+  ! write(*,*) Bp
+
+  ! 散乱断面積
+  sigma = sqrt(8*pi) * aimag(exp(-ione*pi/4) * sqrt(2/pi)*exp(-ione*pi/4)*sum(Bm) )
+
+  write(*,'(2e24.16)') w, sigma
+
+  ! open(10,file="in.dat")
+  ! do i=-100,100
+  !    do j=-100,100
+  !       x = [2*i*1d-2, 2*j*1d-2]
+
+  !       u = zero
+
+  !       if(length_vector(x) > smat_shell%Rout) then
+  !          do m=m_min,m_max
+  !             u = u + Bm(m)*besh(m,w*length_vector(x))*exp(ione*m*atan2(x(2),x(1)))
+  !          end do
+
+  !       else if(length_vector(x) < smat_shell%Rin) then
+  !          do m=m_min,m_max
+  !             u = u + (Bp(m)*besj(m,w*length_vector(x)) + Am(m)*besh(m,w*length_vector(x)))*exp(ione*m*atan2(x(2),x(1)))
+  !          end do
+  !       end if
+
+  !       write(10,'(4e24.16)') x(:), real(u), aimag(u)
+        
+  !    end do     
+  ! end do
+  ! close(10)
+  
+end program main
+
+  ! program main
+!   use math
+!   use bessel
+!   use smatrix_shell_multiple_class
+!   use smatrix_unit_donut_class
+
+!   real(8) :: w = 2.0
+!   ! integer,parameter :: m_min = -15
+!   ! integer,parameter :: m_max = +15
+  
+!   real(8):: radius
+
+!   type(smatrix_unit_donut) :: smat_unit(1)
+
+!   complex(8),allocatable :: A(:), B(:)
+!   real(8) :: sigma
+
+!   complex(8),allocatable :: S_deri(:,:), S_old(:,:)
+!   real(8) :: dR = 0.001d0
+
+!   open(10,file="diff.dat")
+!   open(11,file="deri.dat")
+
+
+!   radius = 1.01d0
+
+!   do while(radius < 2.d0)
+     
+!      ! 単位構造のS行列
+!      call smat_unit(1)%new(w, 2, [radius,1.0d0], [1.4905d0, 0.27594d0], [1.d0/1.09271d0,1.d0/1.6702d0])
+
+!      allocate(S_deri(smat_unit(1)%m_min:smat_unit(1)%m_max,smat_unit(1)%m_min:smat_unit(1)%m_max))
+!      call smat_unit(1)%calc_derivative_radius(1, S_deri)
+     
+
+
+!      write(11,'(11e24.16)') radius, &
+!           real(S_deri(0,0)), aimag(S_deri(0,0)), &
+!           real(S_deri(1,1)), aimag(S_deri(1,1)), &
+!           real(S_deri(-1,1)), aimag(S_deri(-1,1)), &
+!           real(S_deri(1,-1)), aimag(S_deri(1,-1)), &
+!           real(S_deri(-1,-1)), aimag(S_deri(-1,-1))
+
+!      if(allocated(S_old)) then
+!         write(10,'(12e24.16)') radius, &
+!              real(smat_unit(1)%S(0,0)-S_old(0,0))/dR, aimag(smat_unit(1)%S(0,0)-S_old(0,0))/dR, &
+!              real(smat_unit(1)%S(1,1)-S_old(1,1))/dR, aimag(smat_unit(1)%S(1,1)-S_old(1,1))/dR
+
+!         deallocate(S_old)
+!      end if
+
+!      allocate(S_old(smat_unit(1)%m_min:smat_unit(1)%m_max,smat_unit(1)%m_min:smat_unit(1)%m_max))
+!      S_old = smat_unit(1)%S
+
+!      call smat_unit(1)%del
+!      deallocate(S_deri)
+
+!      radius = radius + dR
+!   end do
+
+!   ! ! x2方向の平面波に対応するA, B
+!   ! allocate(A(smat_unit(1)%m_min:smat_unit(1)%m_max))
+!   ! allocate(B(smat_unit(1)%m_min:smat_unit(1)%m_max))
+!   ! A(:) = one
+!   ! B(:) = matmul(smat_unit(1)%S,A)
+
+!   ! ! 散乱断面積
+!   ! sigma = sqrt(8*pi) * aimag(exp(-ione*pi/4) * sqrt(2/pi)*exp(-ione*pi/4)*sum(B) )
+
+!   ! ! 全体のS行列 S(nlayer)の(0,0), (1,1), (-1,1), (1,-1), (-1,-1)を出力
+!   ! write(*,'(13e24.16)') w, sigma, abs(smat_unit(1)%S(1,1)), &
+!   !      real(smat_unit(1)%S(0,0)), aimag(smat_unit(1)%S(0,0)), &
+!   !      real(smat_unit(1)%S(1,1)), aimag(smat_unit(1)%S(1,1)), &
+!   !      real(smat_unit(1)%S(-1,1)), aimag(smat_unit(1)%S(-1,1)), &
+!   !      real(smat_unit(1)%S(1,-1)), aimag(smat_unit(1)%S(1,-1)), &
+!   !      real(smat_unit(1)%S(-1,-1)), aimag(smat_unit(1)%S(-1,-1))
+
+! end program main
